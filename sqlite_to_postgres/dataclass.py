@@ -1,8 +1,7 @@
 from datetime import time
-import sqlite3
-from dataclasses import dataclass, astuple, field
-from typing import Generator
+from dataclasses import dataclass
 from uuid import UUID
+
 
 @dataclass
 class Genre:
@@ -53,7 +52,6 @@ class GenreFilmwork:
     genre_id: int
     created_at: time
 
-
     def __post_init__(self):
         if isinstance(self.id, str):
             self.id = UUID(self.id)
@@ -70,5 +68,3 @@ class PersonFilmwork:
     def __post_init__(self):
         if isinstance(self.id, str):
             self.id = UUID(self.id)
-
-
