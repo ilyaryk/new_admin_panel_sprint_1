@@ -1,6 +1,9 @@
+import os
 import sqlite3
-from enum import Enum
 import psycopg
+from psycopg2.extras import execute_batch
+from enum import Enum
+from dotenv import load_dotenv
 from psycopg import ClientCursor, connection as _connection
 from psycopg.rows import dict_row
 from contextlib import closing
@@ -8,6 +11,36 @@ from dataclasses import astuple
 from typing import Generator
 from dataclass import Genre, FilmWork, Person, GenreFilmwork, PersonFilmwork
 from ..config.settings import BATCH_SIZE
+
+load_dotenv()
+
+dict_type_table = {
+    'genre': Genre,
+    'person': Person,
+    'film_work': FilmWork,
+    'genre_film_work': GenreFilmwork,
+    'person_film_work': PersonFilmwork,
+}
+
+
+dict_table_query = {'genre': b'INSERT INTO content.genre \
+                (id, name, description, created_at, updated_at)\
+                VALUES (%s, %s, %s, %s, %s) ON CONFLICT (id) DO NOTHING',
+                    'person': b'INSERT INTO content.person \
+                (id, full_name, created_at, updated_at) \
+                VALUES (%s, %s, %s, %s) ON CONFLICT (id) DO NOTHING',
+                    'film_work': b'INSERT INTO content.film_work \
+                (id, title, description, creation_date, file_path,\
+                rating, type, created_at, updated_at) VALUES \
+                (%s, %s, %s, %s, %s, %s, %s, %s, %s) \
+                ON CONFLICT (id) DO NOTHING; ',
+                    'person_film_work': 'INSERT INTO content.person_film_work \
+                (id, person_id, film_work_id, role, created_at) \
+                VALUES (%s, %s, %s, %s, %s) ON CONFLICT (id) DO NOTHING',
+                    'genre_film_work': 'INSERT INTO content.genre_film_work \
+                (id, genre_id, film_work_id, created_at) \
+                VALUES (%s, %s, %s, %s) ON CONFLICT (id) DO NOTHING'
+                    }
 
 
 class Tables(Enum):
@@ -27,18 +60,7 @@ def extract_data(sqlite_cursor: sqlite3.Cursor, table: str) -> Generator[
 
 def transform_data(sqlite_cursor, table_name):
     for batch in extract_data(sqlite_cursor, table_name):
-        if table_name == Tables.GENRE.value:
-            data = [Genre(**dict(genre)) for genre in batch]
-        if table_name == Tables.PERSON.value:
-            data = [Person(**dict(person)) for person in batch]
-        if table_name == Tables.FILM_WORK.value:
-            data = [FilmWork(**dict(film)) for film in batch]
-        if table_name == Tables.GENRE_FILM_WORK.value:
-            data = [GenreFilmwork(**dict(genre_film)) for genre_film in batch]
-        if table_name == Tables.PERSON_FILM_WORK.value:
-            data = [
-                PersonFilmwork(**dict(person_film)) for person_film in batch
-                    ]
+        data = [dict_type_table[table_name](**dict(genre)) for genre in batch]
     yield {
         'table': table_name,
         'data': data
@@ -52,44 +74,13 @@ class PostgresSaver():
     def save_all_data(self, data):
         pg_cursor = pg_conn.cursor()
         for table in data:
-            if table['table'] == Tables.GENRE.value:
-                query = 'INSERT INTO content.genre \
-                (id, name, description, created_at, updated_at)\
-                VALUES (%s, %s, %s, %s, %s) ON CONFLICT (id) DO NOTHING'
-                batch_as_tuples = [astuple(genre) for genre in table['data']]
-                pg_cursor.executemany(query, batch_as_tuples)
-
-            if table['table'] == Tables.FILM_WORK.value:
-                query = 'INSERT INTO content.film_work \
-                (id, title, description, creation_date, file_path,\
-                rating, type, created_at, updated_at) VALUES \
-                (%s, %s, %s, %s, %s, %s, %s, %s, %s) \
-                ON CONFLICT (id) DO NOTHING'
-                batch_as_tuples = [
-                    astuple(film_work) for film_work in table['data']
+            batch_as_tuples = [
+                astuple(dat) for dat in table['data']
                                    ]
-                pg_cursor.executemany(query, batch_as_tuples)
-
-            if table['table'] == Tables.PERSON.value:
-                query = 'INSERT INTO content.person \
-                (id, full_name, created_at, updated_at) \
-                VALUES (%s, %s, %s, %s) ON CONFLICT (id) DO NOTHING'
-                batch_as_tuples = [astuple(person) for person in table['data']]
-                pg_cursor.executemany(query, batch_as_tuples)
-
-            if table['table'] == Tables.PERSON_FILM_WORK.value:
-                query = 'INSERT INTO content.person_film_work \
-                (id, person_id, film_work_id, role, created_at) \
-                VALUES (%s, %s, %s, %s, %s) ON CONFLICT (id) DO NOTHING'
-                batch_as_tuples = [astuple(p_f_w) for p_f_w in table['data']]
-                pg_cursor.executemany(query, batch_as_tuples)
-
-            if table['table'] == Tables.GENRE_FILM_WORK.value:
-                query = 'INSERT INTO content.genre_film_work \
-                (id, genre_id, film_work_id, created_at) \
-                VALUES (%s, %s, %s, %s) ON CONFLICT (id) DO NOTHING'
-                batch_as_tuples = [astuple(p_f_w) for p_f_w in table['data']]
-                pg_cursor.executemany(query, batch_as_tuples)
+            execute_batch(pg_cursor,
+                          dict_table_query[table['table']],
+                          batch_as_tuples)
+            pg_conn.commit()
 
 
 class SQLiteLoader():
@@ -114,9 +105,16 @@ def load_from_sqlite(connection: sqlite3.Connection, pg_conn: _connection):
 
 
 if __name__ == '__main__':
-    dsl = {'dbname': 'postgres', 'user': 'app',
+    '''dsl = {'dbname': os.environ.get('DSL_DB_NAME'),
+           'user': os.environ.get('DB_USER'),
+           'password': os.environ.get('DB_PASSWORD'),
+           'host': os.environ.get('DB_HOST'),
+           'port': os.environ.get('PORT')}'''
+    dsl = {'dbname': 'postgres', 'user': 'app', 
            'password': '123qwe', 'host': '127.0.0.1', 'port': 5432}
     with sqlite3.connect('db.sqlite') as sqlite_conn, psycopg.connect(
         **dsl, row_factory=dict_row, cursor_factory=ClientCursor
     ) as pg_conn:
         load_from_sqlite(sqlite_conn, pg_conn)
+        sqlite_conn.close()
+        pg_conn.close()
