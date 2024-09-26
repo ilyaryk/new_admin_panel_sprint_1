@@ -105,13 +105,11 @@ def load_from_sqlite(connection: sqlite3.Connection, pg_conn: _connection):
 
 
 if __name__ == '__main__':
-    '''dsl = {'dbname': os.environ.get('DSL_DB_NAME'),
+    dsl = {'dbname': os.environ.get('DSL_DB_NAME'),
            'user': os.environ.get('DB_USER'),
            'password': os.environ.get('DB_PASSWORD'),
            'host': os.environ.get('DB_HOST'),
-           'port': os.environ.get('PORT')}'''
-    dsl = {'dbname': 'postgres', 'user': 'app', 
-           'password': '123qwe', 'host': '127.0.0.1', 'port': 5432}
+           'port': os.environ.get('PORT')}
     with sqlite3.connect('db.sqlite') as sqlite_conn, psycopg.connect(
         **dsl, row_factory=dict_row, cursor_factory=ClientCursor
     ) as pg_conn:

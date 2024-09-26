@@ -66,6 +66,7 @@ class GenreFilmwork(UUIDMixin):
 
     class Meta:
         db_table = "content\".\"genre_film_work"
+        indexes = [models.Index(fields=['film_Work', 'genre'])]
 
 
 class Person(UUIDMixin, TimeStampedMixin):
@@ -74,7 +75,15 @@ class Person(UUIDMixin, TimeStampedMixin):
 
 
 class PersonFilmwork(UUIDMixin):
+    class Roles(models.TextChoices):
+        ACTOR = 'actor'
+        PRODUCER = 'producer'
+        DIRECTOR = 'director'
+
     film_work = models.ForeignKey('Filmwork', on_delete=models.CASCADE)
     person = models.ForeignKey('Person', on_delete=models.CASCADE)
-    role = models.TextField('role')
+    role = models.TextField('role', choices=Roles.choices)
     created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=['film_Work', 'person'])]
