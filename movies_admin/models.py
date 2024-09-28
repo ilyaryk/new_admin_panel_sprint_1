@@ -1,4 +1,5 @@
 import uuid
+from psqlextra.indexes import UniqueIndex
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils.translation import gettext_lazy as _
@@ -66,7 +67,7 @@ class GenreFilmwork(UUIDMixin):
 
     class Meta:
         db_table = "content\".\"genre_film_work"
-        indexes = [models.Index(fields=['film_Work', 'genre'])]
+        indexes = [UniqueIndex(fields=['film_Work', 'genre'])]
 
 
 class Person(UUIDMixin, TimeStampedMixin):
@@ -86,4 +87,4 @@ class PersonFilmwork(UUIDMixin):
     created = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        indexes = [models.Index(fields=['film_Work', 'person'])]
+        indexes = [UniqueIndex(fields=['film_Work', 'person', 'role'])]

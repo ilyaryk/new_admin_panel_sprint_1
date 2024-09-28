@@ -41,5 +41,5 @@ CREATE TABLE IF NOT EXISTS content.person_film_work (
     person_id uuid NOT NULL,
     role TEXT NOT NULL,
     created_at timestamp with time zone
-    UNIQUE (person_id, film_work_id)
+    UNIQUE (person_id, film_work_id, role)
 ); 

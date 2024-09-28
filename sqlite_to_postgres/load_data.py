@@ -77,10 +77,11 @@ class PostgresSaver():
             batch_as_tuples = [
                 astuple(dat) for dat in table['data']
                                    ]
-            execute_batch(pg_cursor,
-                          dict_table_query[table['table']],
-                          batch_as_tuples)
-            pg_conn.commit()
+            for i in range(1, len(batch_as_tuples) % 1000 + 1):
+                execute_batch(pg_cursor,
+                              dict_table_query[table['table']],
+                              batch_as_tuples[:1000*i])
+                pg_conn.commit()
 
 
 class SQLiteLoader():
